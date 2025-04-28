@@ -1,13 +1,13 @@
 #include <stdio.h>
-#include <stdlib.h> // For EXIT_SUCCESS/FAILURE
-#include "map_data.h" // Include our map data header
+#include <stdlib.h>
+#include "map_data.h"
+#include "map_io.h" // Include the I/O header
 
-// Define map dimensions (can be made dynamic later)
 #define MAP_WIDTH 80
-#define MAP_HEIGHT 40
+#define MAP_HEIGHT 25 // Adjusted height for better console view
 
 int main() {
-    printf("Procedural Map Generator - Milestone 1\n");
+    printf("Procedural Map Generator - Milestone 2\n");
 
     MapData* map = create_map(MAP_WIDTH, MAP_HEIGHT);
 
@@ -16,14 +16,20 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // --- We will add generation and output here later ---
-    printf("Map data structure created successfully.\n");
-    printf("Map dimensions: %d x %d\n", map->width, map->height);
-    // Example: Accessing an element (just for demo, it's 0.0 now)
-    printf("Elevation at (0,0): %f\n", map->elevation[0][0]);
+    // --- Fill with a test pattern for now ---
+    for (int y = 0; y < map->height; ++y) {
+        for (int x = 0; x < map->width; ++x) {
+            // Simple gradient for testing output
+             map->elevation[y][x] = (double)x / (map->width -1);
+        }
+    }
+    printf("Filled map with test pattern.\n");
+
+    // --- Print the map ---
+    print_map_text(map);
 
     destroy_map(map);
-    map = NULL; // Good practice to NULL dangling pointers
+    map = NULL;
 
     return EXIT_SUCCESS;
 }
