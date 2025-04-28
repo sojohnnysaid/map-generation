@@ -13,52 +13,53 @@ static inline double clamp(double value, double min_val, double max_val) {
     return value;
 }
 
-void shape_island(MapData* map, double mix_factor, IslandShapeType shape_type) {
-    if (!map || !map->elevation) {
-        fprintf(stderr, "Error: Cannot shape island on NULL map.\n");
+// --- New Implementation: Apply Continent Mask ---
+void apply_continent_mask(MapData* map, double** continent_map, int width, int height, double land_threshold) {
+    if (!map || !map->elevation || !continent_map) {
+        fprintf(stderr, "Error: Cannot apply continent mask with NULL inputs.\n");
         return;
     }
-
-    mix_factor = clamp(mix_factor, 0.0, 1.0);
-    if (mix_factor == 0.0) {
-        printf("Island shaping mix factor is 0.0, skipping.\n");
-        return;
+    if (width <= 0 || height <= 0) {
+         fprintf(stderr, "Error: Invalid dimensions for continent mask.\n");
+         return;
     }
 
-    printf("Applying island shape (mix=%.2f, type=%d)...\n", mix_factor, shape_type);
+    printf("Applying continent mask (land threshold = %.2f)...\n", land_threshold);
 
-    int width = map->width;
-    int height = map->height;
+    // Define how deep the ocean should be forced
+    const double ocean_depth_target = 0.05; // Force below beach level
 
     for (int y = 0; y < height; y++) {
+        // Check row validity (optional but safer)
+        if (!map->elevation[y] || !continent_map[y]) {
+             fprintf(stderr, "Error: Row %d is NULL in elevation or continent map.\n", y);
+             continue;
+        }
         for (int x = 0; x < width; x++) {
-            double nx = (2.0 * x / (width - 1.0)) - 1.0;
-            double ny = (2.0 * y / (height - 1.0)) - 1.0;
-            if (width == 1) nx = 0.0;
-            if (height == 1) ny = 0.0;
+            double continent_val = continent_map[y][x];
+            double current_elev = map->elevation[y][x];
 
-            double d = 0.0;
-            switch (shape_type) {
-                case ISLAND_SHAPE_SQUARE:
-                    nx = clamp(nx, -1.0, 1.0);
-                    ny = clamp(ny, -1.0, 1.0);
-                    d = 1.0 - (1.0 - nx * nx) * (1.0 - ny * ny);
-                    break;
-                case ISLAND_SHAPE_RADIAL:
-                default:
-                    d = sqrt(nx * nx + ny * ny);
-                    break;
+            // If continent mask value is below threshold, force elevation down
+            if (continent_val < land_threshold) {
+                // Option 1: Force to a specific depth
+                map->elevation[y][x] = ocean_depth_target;
+
+                // Option 2: Blend towards depth based on how far below threshold
+                // double blend_factor = 1.0 - (continent_val / land_threshold); // 0 at threshold, 1 at 0
+                // map->elevation[y][x] = lerp(current_elev, ocean_depth_target, blend_factor * blend_factor); // Stronger blend further out
+            } else {
+                // Option 3: On land, maybe slightly boost elevation? Optional.
+                // map->elevation[y][x] = current_elev * 1.05; // Example boost
             }
-            d = clamp(d, 0.0, 2.0);
-            double target_elevation = 1.0 - clamp(d, 0.0, 1.0);
-            double current_elevation = map->elevation[y][x];
-            map->elevation[y][x] = lerp(current_elevation, target_elevation, mix_factor);
+
+            // Ensure final elevation is clamped (important if boosting/blending)
             map->elevation[y][x] = clamp(map->elevation[y][x], 0.0, 1.0);
         }
     }
 
-    printf("Island shaping complete.\n");
+    printf("Continent mask application complete.\n");
 }
+
 
 void apply_terraces(MapData* map, int num_levels) {
     if (!map || !map->elevation) {
