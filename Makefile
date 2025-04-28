@@ -12,25 +12,29 @@ TARGET = $(BINDIR)/mapgen
 
 # Sources and Objects
 SOURCES = $(wildcard $(SRCDIR)/*.c)
-OBJECTS = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
+OBJECTS = $(patsubst $(SRCDIR)/%.c, obj/%.o, $(SOURCES))
 
 # Default target
 all: $(TARGET)
 
 # Link executable
 $(TARGET): $(OBJECTS)
-	@mkdir -p $(BINDIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 	@echo "Build complete: $@"
 
 # Compile .c to .o
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
-	@mkdir -p $(OBJDIR)
+obj/%.o: $(SRCDIR)/%.c $(wildcard $(INCDIR)/*.h) | obj
+	@mkdir -p obj
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Create obj directory
+obj:
+	@mkdir -p obj
 
 # Clean build files
 clean:
-	rm -rf $(OBJDIR) $(BINDIR)
+	rm -rf obj $(TARGET)
 	@echo "Cleaned build files."
 
 # Run program
@@ -41,4 +45,4 @@ run: all
 time: all
 	time ./$(TARGET)
 
-.PHONY: all clean run time
+.PHONY: all clean run time obj
