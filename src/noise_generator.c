@@ -1,18 +1,19 @@
 #include "noise_generator.h"
 #include <stdlib.h>
-#include <stdio.h>
+#include <stdio.h> // Included multiple times in original, ensure only once needed
+#include <math.h> // Needed for pow() if used later, currently not
+#include <float.h> // For DBL_MAX, DBL_MIN (or FLT_MAX/MIN)
 
 // --- FastNoiseLite Integration ---
 // Define the implementation macro *before* including the header
-// This tells the header to include the actual function bodies here.
 #define FNL_IMPL
 #include "FastNoiseLite.h"
 // ---------------------------------
 
 // Define the actual structure for our opaque pointer
-// We just need to hold the fnl_state
 struct NoiseState {
     fnl_state noise;
+    // Can add other persistent state here if needed later
 };
 
 NoiseState* init_noise_generator(int seed) {
@@ -25,8 +26,7 @@ NoiseState* init_noise_generator(int seed) {
     state->noise = fnlCreateState(); // Get default state from the library
     state->noise.noise_type = FNL_NOISE_OPENSIMPLEX2; // Or FNL_NOISE_PERLIN etc.
     state->noise.seed = seed;
-    // state->noise.frequency = 0.01f; // Can set defaults here if desired
-
+    // We don't set a default frequency here; it will be set per-octave
     printf("Initialized noise generator with seed %d\n", seed);
     return state;
 }
@@ -40,66 +40,118 @@ void cleanup_noise_generator(NoiseState* state) {
     }
 }
 
-// Helper to get noise and rescale it to 0.0 - 1.0
-// FastNoiseLite typically returns -1.0 to 1.0
-static inline double get_scaled_noise(NoiseState* state, float x, float y) {
-     // Use library's 2D noise function
-    float noise_val = fnlGetNoise2D(&(state->noise), x, y);
-    // Rescale from [-1, 1] to [0, 1]
-    return (double)(noise_val * 0.5f + 0.5f);
+// Static helper: Gets raw noise [-1, 1] using the current state settings
+// Assumes state->noise.frequency has been set appropriately before calling.
+static inline float get_raw_noise(NoiseState* state, float x, float y) {
+     // Make sure state is valid if this were public, but it's static inline
+     return fnlGetNoise2D(&(state->noise), x, y);
 }
 
-
-void generate_noise_map(NoiseState* state, MapData* map) {
+// Octave generation function using world coordinates and internal frequency setting
+void generate_octave_noise_map(NoiseState* state, MapData* map,
+                               int octaves, double persistence,
+                               double lacunarity, double base_frequency) // Note: Parameter renamed
+{
     if (!state || !map || !map->elevation) {
-        fprintf(stderr, "Error: Invalid state or map provided to generate_noise_map.\n");
+        fprintf(stderr, "Error: Invalid state or map provided to generate_octave_noise_map.\n");
         return;
     }
+    if (octaves < 1) octaves = 1;
 
-    printf("Generating noise map...\n");
-    // Note: The tutorial normalizes coordinates to [-0.5, 0.5] and then scales by frequency.
-    // FastNoiseLite often works well with larger coordinate ranges directly, scaled by frequency.
-    // Let's try the tutorial's approach first for consistency.
+    printf("Generating octave noise map (%d octaves, persist=%.2f, lacun=%.2f, freq=%.4f)...\n", // Label updated
+           octaves, persistence, lacunarity, base_frequency);
 
-    // Set a base frequency for the noise calculation
-    state->noise.frequency = 0.1f; // Lower frequency = larger features. Adjust as needed.
+    // --- Keep offsets defined but unused for now ---
+    float octave_offsets_x[] = { 0.0f, 17.8f, 31.1f, 47.5f, 59.3f, 71.9f, 83.1f, 97.7f };
+    float octave_offsets_y[] = { 0.0f, 23.5f, 41.7f, 53.3f, 67.3f, 79.1f, 89.9f, 101.3f };
+    int max_supported_octaves = sizeof(octave_offsets_x) / sizeof(octave_offsets_x[0]);
+    if (octaves > max_supported_octaves) {
+        fprintf(stderr, "Warning: Requested %d octaves, but only have offsets for %d. Clamping.\n",
+                octaves, max_supported_octaves);
+        octaves = max_supported_octaves;
+    }
+    // --- ---
 
+    // Variables to track min/max output
+    double min_elevation = DBL_MAX;
+    double max_elevation = -DBL_MAX; // Correct initialization
+
+    // Pre-calculate max amplitude for normalization
+    double max_possible_amplitude = 0.0;
+    double current_amplitude = 1.0;
+    for (int i = 0; i < octaves; i++) {
+        max_possible_amplitude += current_amplitude;
+        current_amplitude *= persistence;
+    }
+    printf("--> Calculated max_possible_amplitude: %.4f\n", max_possible_amplitude);
+
+    // Handle potential division by zero
+    if (max_possible_amplitude <= 1e-6) {
+        max_possible_amplitude = 1.0;
+        fprintf(stderr, "Warning: Max possible amplitude is near zero. Normalization may be inaccurate.\n");
+    }
+
+    // Main generation loop
     for (int y = 0; y < map->height; y++) {
         for (int x = 0; x < map->width; x++) {
-            // Normalize coordinates to [-0.5, 0.5] range
-            // Use float for noise function inputs
-            float nx = (float)x / map->width - 0.5f;
-            float ny = (float)y / map->height - 0.5f;
 
-            // Important: Noise functions often take coordinates directly.
-            // The frequency setting in FastNoiseLite handles the scaling.
-            // So, we multiply normalized coords by a factor related to frequency,
-            // OR we can skip normalization and use world coords (x,y) directly
-            // and rely solely on the frequency setting.
-            // Let's use world coords and frequency setting for simplicity with FNL.
-            // We might need to adjust frequency significantly.
+            // --- Use Raw Map Coordinates (x, y) ---
+            float world_x = (float)x;
+            float world_y = (float)y;
 
-            // --- Method 1: Using world coordinates and FNL frequency ---
-            // float noise_x = (float)x;
-            // float noise_y = (float)y;
-            // state->noise.frequency = 0.02f; // Adjust this! Try 0.01 to 0.1
+            double total_noise = 0.0;
+            double amplitude = 1.0;
+            double frequency = base_frequency; // Start with base frequency
 
-            // --- Method 2: Using normalized coordinates like tutorial ---
-            // We still need scaling even with normalized coords. Let's use a base scale factor.
-            // This factor effectively *is* the frequency/wavelength control.
-            float scale = 5.0f; // Similar to frequency=5 in tutorial example. Adjust this!
-            float noise_x = nx * scale;
-            float noise_y = ny * scale;
+            for (int i = 0; i < octaves; i++) {
+                // Set the frequency for the current octave in the noise state
+                state->noise.frequency = (float)frequency;
 
-            // Let's stick with Method 2 for now to follow the tutorial structure closely.
-            map->elevation[y][x] = get_scaled_noise(state, noise_x, noise_y);
+                // Coordinates for this octave (offsets still commented out)
+                float noise_x = world_x; // + octave_offsets_x[i]; // Can add later if needed
+                float noise_y = world_y; // + octave_offsets_y[i];
+
+                // Get raw noise [-1, 1] using the current state settings
+                float noise_val = get_raw_noise(state, noise_x, noise_y);
+
+                // Accumulate weighted noise
+                total_noise += noise_val * amplitude;
+
+                // Update amplitude and frequency for the next octave
+                amplitude *= persistence;
+                frequency *= lacunarity; // Frequency increases
+            }
+
+            // Normalize the total noise from ~[-max_amp, +max_amp] to [0, 1]
+            double normalized_noise = (total_noise / max_possible_amplitude) * 0.5 + 0.5;
+
+            // Clamp values just in case they slightly exceed bounds
+            if (normalized_noise < 0.0) normalized_noise = 0.0;
+            if (normalized_noise > 1.0) normalized_noise = 1.0;
+
+            map->elevation[y][x] = normalized_noise;
+
+            // Update min/max tracking
+            if (normalized_noise < min_elevation) {
+                min_elevation = normalized_noise;
+            }
+            if (normalized_noise > max_elevation) {
+                max_elevation = normalized_noise; // Corrected update
+            }
         }
     }
-    printf("Noise map generation complete.\n");
+    printf("Octave noise map generation complete.\n");
+
+    // Print the actual range found
+    printf("--> Actual elevation range generated: [%.4f, %.4f]\n",
+           min_elevation, max_elevation);
 }
 
-// Implementation for the direct value getter (may not be used initially)
+// Gets a single noise value using specified coordinates and the CURRENT state settings
+// Be cautious if frequency isn't explicitly set before calling externally.
 float get_noise_value(NoiseState* state, float x, float y) {
      if (!state) return 0.0f;
+     // Note: Uses whatever frequency is currently set in state->noise!
+     // Might be better to add a frequency parameter here if called externally.
      return fnlGetNoise2D(&(state->noise), x, y);
 }

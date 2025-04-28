@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 // Simple threshold for demo purposes
-#define WATER_LEVEL 0.4
+#define WATER_LEVEL 0.5
 
 void print_map_text(const MapData* map) {
     if (!map || !map->elevation) {
