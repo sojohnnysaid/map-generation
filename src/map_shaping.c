@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <float.h>
 
+// Linear interpolation function (keeping for potential future use)
+static inline double lerp(double a, double b, double t) __attribute__((unused));
 static inline double lerp(double a, double b, double t) {
     return a * (1.0 - t) + b * t;
 }
@@ -37,19 +39,25 @@ void apply_continent_mask(MapData* map, double** continent_map, int width, int h
         }
         for (int x = 0; x < width; x++) {
             double continent_val = continent_map[y][x];
-            double current_elev = map->elevation[y][x];
+            // Original elevation value (unused in current implementation)
+            // double current_elev = map->elevation[y][x];
 
-            // If continent mask value is below threshold, force elevation down
-            if (continent_val < land_threshold) {
-                // Option 1: Force to a specific depth
-                map->elevation[y][x] = ocean_depth_target;
-
-                // Option 2: Blend towards depth based on how far below threshold
-                // double blend_factor = 1.0 - (continent_val / land_threshold); // 0 at threshold, 1 at 0
-                // map->elevation[y][x] = lerp(current_elev, ocean_depth_target, blend_factor * blend_factor); // Stronger blend further out
+            // INVERTED: If continent mask value is ABOVE threshold, make it land
+            if (continent_val >= land_threshold) {
+                // For land areas, use current elevation but ensure it's above water
+                double min_land_height = 0.2; // Ensure land is above water level
+                if (map->elevation[y][x] < min_land_height) {
+                    map->elevation[y][x] = min_land_height + 
+                        (continent_val - land_threshold) * 0.3; // Higher continent values = higher land
+                }
+                
+                // Add some boost based on how far above threshold
+                double boost_factor = (continent_val - land_threshold) / (1.0 - land_threshold);
+                map->elevation[y][x] *= (1.0 + boost_factor * 0.3);
             } else {
-                // Option 3: On land, maybe slightly boost elevation? Optional.
-                // map->elevation[y][x] = current_elev * 1.05; // Example boost
+                // For ocean areas, force depth based on distance from threshold
+                double depth_factor = 1.0 - (continent_val / land_threshold);
+                map->elevation[y][x] = ocean_depth_target * depth_factor;
             }
 
             // Ensure final elevation is clamped (important if boosting/blending)

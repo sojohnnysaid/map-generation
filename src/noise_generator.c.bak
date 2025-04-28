@@ -101,28 +101,28 @@ NoiseState* init_noise_generator_with_params(const NoiseParams* params) {
     
     switch (params->return_type) {
         case CELLULAR_RETURN_CELL_VALUE:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_CELLVALUE;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_CELLVALUE;
             break;
         case CELLULAR_RETURN_DISTANCE:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE;
             break;
         case CELLULAR_RETURN_DISTANCE2:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2;
             break;
         case CELLULAR_RETURN_DISTANCE2_ADD:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2ADD;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_ADD;
             break;
         case CELLULAR_RETURN_DISTANCE2_SUB:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2SUB;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_SUB;
             break;
         case CELLULAR_RETURN_DISTANCE2_MUL:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2MUL;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_MUL;
             break;
         case CELLULAR_RETURN_DISTANCE2_DIV:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2DIV;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_DIV;
             break;
         default:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_CELLVALUE;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_CELLVALUE;
     }
     
     state->noise.cellular_jitter_mod = (float)params->jitter;
@@ -276,25 +276,25 @@ void generate_cellular_noise_to_layer(NoiseState* state,
     // Set cellular return type
     switch (params->return_type) {
         case CELLULAR_RETURN_CELL_VALUE:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_CELLVALUE;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_CELLVALUE;
             break;
         case CELLULAR_RETURN_DISTANCE:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE;
             break;
         case CELLULAR_RETURN_DISTANCE2:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2;
             break;
         case CELLULAR_RETURN_DISTANCE2_ADD:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2ADD;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_ADD;
             break;
         case CELLULAR_RETURN_DISTANCE2_SUB:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2SUB;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_SUB;
             break;
         case CELLULAR_RETURN_DISTANCE2_MUL:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2MUL;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_MUL;
             break;
         case CELLULAR_RETURN_DISTANCE2_DIV:
-            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_TYPE_DISTANCE2DIV;
+            state->noise.cellular_return_type = FNL_CELLULAR_RETURN_DISTANCE2_DIV;
             break;
     }
     
@@ -348,8 +348,8 @@ void generate_cellular_noise_to_layer(NoiseState* state,
         for (int x = 0; x < width; x++) {
             float noise_val = get_raw_noise(state, (float)x, (float)y);
             
-            // Convert to 0-1 range and INVERT (important for cellular noise)
-            double normalized_noise = 1.0 - ((noise_val * 0.5) + 0.5);
+            // Convert to 0-1 range (FNL outputs -1 to 1 for some noise types)
+            double normalized_noise = (noise_val * 0.5) + 0.5;
             
             // Clamp to valid range
             if (normalized_noise < 0.0) normalized_noise = 0.0;
@@ -379,18 +379,18 @@ NoiseParams create_cellular_default_params() {
     params.seed = 1337;
     params.frequency = 0.015;
     
-    // Fractal settings - Using fractal noise for better terrain features
-    params.fractal_type = FRACTAL_TYPE_FBM;
+    // Fractal settings from JSON
+    params.fractal_type = FRACTAL_TYPE_NONE;
     params.octaves = 3;
     params.lacunarity = 2.0;
-    params.gain = 0.5;
-    params.weighted_strength = 0.3;  // Higher weighted strength for varied terrain
+    params.gain = 0.5;  // Same as persistence
+    params.weighted_strength = 0.0;
     params.ping_pong_strength = 2.0;
     
-    // Cellular settings optimized for clear Voronoi-like landmasses
-    params.distance_function = CELLULAR_DISTANCE_EUCLIDEAN; // Cleaner cell boundaries
-    params.return_type = CELLULAR_RETURN_DISTANCE; // Distance provides better contrast
-    params.jitter = 0.85; // Less jitter for more defined cells
+    // Cellular settings from JSON
+    params.distance_function = CELLULAR_DISTANCE_HYBRID;
+    params.return_type = CELLULAR_RETURN_CELL_VALUE;
+    params.jitter = 1.0;
     
     // Domain warp settings from JSON
     params.use_domain_warp = true;

@@ -176,7 +176,8 @@ void fill_lakes(MapData* map, double ocean_level) {
                 Point start_point = {x, y};
                 double min_spill_point = DBL_MAX; // Lowest point found on the rim
                 bool reached_ocean = false;
-                int current_pit_size = 0;
+                // Track pit size (unused for now)
+                // int current_pit_size = 0;
 
                 // Reset queues for this potential pit
                 q->size = 0; q->head = 0; q->tail = -1;
