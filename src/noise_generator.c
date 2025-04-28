@@ -31,35 +31,35 @@ void cleanup_noise_generator(NoiseState* state) {
     }
 }
 
-// Static helper function remains unchanged
 static inline float get_raw_noise(NoiseState* state, float x, float y) {
      return fnlGetNoise2D(&(state->noise), x, y);
 }
 
-// Updated function definition and implementation
 void generate_octave_noise_to_layer(NoiseState* state,
-                                    int width, int height, // Use passed dimensions
-                                    double** target_layer, // Use target layer
-                                    int octaves, double persistence,
-                                    double lacunarity, double base_frequency)
+                                    int width, int height,
+                                    double** target_layer,
+                                    const NoiseParams* params)
 {
-    // Check target_layer validity
-    if (!state || !target_layer) {
-        fprintf(stderr, "Error: Invalid state or target_layer provided.\n");
+    if (!state || !target_layer || !params) {
+        fprintf(stderr, "Error: Invalid state, target_layer, or params provided.\n");
         return;
     }
-    // Check dimensions validity (optional but good)
     if (width <= 0 || height <= 0) {
          fprintf(stderr, "Error: Invalid dimensions provided.\n");
          return;
     }
+
+    int octaves = params->octaves;
+    double persistence = params->persistence;
+    double lacunarity = params->lacunarity;
+    double base_frequency = params->base_frequency;
 
     if (octaves < 1) octaves = 1;
 
     printf("Generating octave noise (%d octaves, persist=%.2f, lacun=%.2f, freq=%.4f)...\n",
            octaves, persistence, lacunarity, base_frequency);
 
-    double min_val = DBL_MAX; // Use generic names now
+    double min_val = DBL_MAX;
     double max_val = -DBL_MAX;
 
     double max_possible_amplitude = 0.0;
@@ -75,17 +75,14 @@ void generate_octave_noise_to_layer(NoiseState* state,
         fprintf(stderr, "Warning: Max possible amplitude is near zero. Normalization may be inaccurate.\n");
     }
 
-    for (int y = 0; y < height; y++) { // Use passed height
-        // Check if row pointer is valid (optional but safer)
+    for (int y = 0; y < height; y++) {
         if (!target_layer[y]) {
              fprintf(stderr, "Error: Target layer row %d is NULL.\n", y);
-             continue; // Skip this row
+             continue;
         }
-        for (int x = 0; x < width; x++) { // Use passed width
-
+        for (int x = 0; x < width; x++) {
             float world_x = (float)x;
             float world_y = (float)y;
-
             double total_noise = 0.0;
             double amplitude = 1.0;
             double frequency = base_frequency;
@@ -105,21 +102,16 @@ void generate_octave_noise_to_layer(NoiseState* state,
             if (normalized_noise < 0.0) normalized_noise = 0.0;
             if (normalized_noise > 1.0) normalized_noise = 1.0;
 
-            target_layer[y][x] = normalized_noise; // Write to target layer
+            target_layer[y][x] = normalized_noise;
 
-            if (normalized_noise < min_val) {
-                min_val = normalized_noise;
-            }
-            if (normalized_noise > max_val) {
-                max_val = normalized_noise;
-            }
+            if (normalized_noise < min_val) min_val = normalized_noise;
+            if (normalized_noise > max_val) max_val = normalized_noise;
         }
     }
     printf("Octave noise generation complete.\n");
     printf("--> Actual value range generated: [%.4f, %.4f]\n", min_val, max_val);
 }
 
-// get_noise_value implementation remains the same
 float get_noise_value(NoiseState* state, float x, float y) {
      if (!state) return 0.0f;
      return fnlGetNoise2D(&(state->noise), x, y);
