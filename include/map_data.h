@@ -13,4 +13,9 @@ MapData* create_map(int width, int height);
 void destroy_map(MapData* map);
 void fill_map_constant(MapData* map, double value); // Helper to fill grid
 
+// --- New Declaration ---
+// Applies the pow(elevation, exponent) function to the map's elevation data
+void redistribute_map(MapData* map, double exponent);
+// -----------------------
+
 #endif // MAP_DATA_H

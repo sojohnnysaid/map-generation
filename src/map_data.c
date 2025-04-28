@@ -1,6 +1,7 @@
 #include "map_data.h"
 #include <stdlib.h>
 #include <stdio.h> // For error messages
+#include <math.h>
 
 MapData* create_map(int width, int height) {
     if (width <= 0 || height <= 0) {
@@ -75,3 +76,41 @@ void fill_map_constant(MapData* map, double value) {
         }
     }
 }
+
+// --- New Implementation ---
+void redistribute_map(MapData* map, double exponent) {
+    if (!map || !map->elevation) {
+        fprintf(stderr, "Error: Cannot redistribute NULL map.\n");
+        return;
+    }
+    if (exponent <= 0) {
+        // pow() with exponent 0 is 1, negative exponents can cause issues with 0 elevation
+        fprintf(stderr, "Warning: Using non-positive exponent (%.2f) in redistribution might lead to unexpected results. Applying anyway.\n", exponent);
+         if (exponent == 0.0) exponent = 1e-9; // Avoid pow(0,0) returning 1 for 0 elevation
+    }
+
+
+    printf("Applying redistribution with exponent %.2f...\n", exponent);
+
+    // Optional: Track range *after* redistribution
+    // double min_post = DBL_MAX;
+    // double max_post = -DBL_MAX;
+
+    for (int y = 0; y < map->height; y++) {
+        for (int x = 0; x < map->width; x++) {
+            double original_elevation = map->elevation[y][x];
+            // Apply the power function
+            map->elevation[y][x] = pow(original_elevation, exponent);
+
+            // Optional: Update post-redistribution range
+            // if (map->elevation[y][x] < min_post) min_post = map->elevation[y][x];
+            // if (map->elevation[y][x] > max_post) max_post = map->elevation[y][x];
+        }
+    }
+
+    // Optional: Print post-redistribution range
+    // printf("--> Elevation range after redistribution: [%.4f, %.4f]\n", min_post, max_post);
+
+    printf("Redistribution complete.\n");
+}
+// ------------------------
