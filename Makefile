@@ -1,7 +1,7 @@
 # Compiler settings
 CC = clang
-CFLAGS = -Wall -Wextra -g -Iinclude
-LDFLAGS =
+CFLAGS = -Wall -Wextra -g -Iinclude -O2
+LDFLAGS = -lm
 
 # Project structure
 SRCDIR = src
