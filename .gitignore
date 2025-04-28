@@ -1,0 +1,11 @@
+# Build artifacts
+bin/
+*.o
+*.out
+
+# OS generated files
+.DS_Store
+
+# Vim swap files
+*.swp
+*.swo
