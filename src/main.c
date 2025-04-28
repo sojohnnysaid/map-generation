@@ -3,6 +3,7 @@
 #include <time.h>
 #include <float.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include "map_data.h"
 #include "map_io.h"
@@ -12,10 +13,10 @@
 
 #define MAP_WIDTH 512
 #define MAP_HEIGHT 256
-#define OUTPUT_PNG_FILENAME "world_map_lakes.png"
+#define OUTPUT_PNG_FILENAME "world_map_fix.png" // New filename
 
 
-#define CONTINENT_LAND_THRESHOLD 0.45
+#define CONTINENT_LAND_THRESHOLD 0.52 // Increased this value
 #define REDISTRIBUTION_EXPONENT 1.8
 #define APPLY_TERRACING false
 #define NUM_TERRACE_LEVELS 12
@@ -30,6 +31,11 @@
 #define OCEAN_LEVEL_FOR_LAKES 0.18
 
 
+#define LATITUDE_TEMP_EFFECT_STRENGTH 0.0
+
+#define ENABLE_CONSOLE_OUTPUT false // Set to true to print ANSI map, false to skip
+
+
 void free_temp_map(double** temp_map, int height) {
     if (!temp_map) return;
     for (int y = 0; y < height; y++) {
@@ -40,7 +46,7 @@ void free_temp_map(double** temp_map, int height) {
 
 
 int main() {
-    printf("Procedural Map Generator - Milestone 16 (Lakes)\n");
+    printf("Procedural Map Generator - Fix Attempt\n");
 
     srand((unsigned int)time(NULL));
     int seed1 = rand();
@@ -51,7 +57,7 @@ int main() {
 
     NoiseParams elev_params = {
         .octaves = 6, .persistence = 0.5, .lacunarity = 2.0,
-        .base_frequency = 0.05, .use_ridged = false
+        .base_frequency = 0.02, .use_ridged = false
     };
     NoiseParams moist_params = {
         .octaves = 4, .persistence = 0.45, .lacunarity = 2.1,
@@ -120,10 +126,13 @@ int main() {
     generate_rivers(map, NUM_RIVERS, MIN_RIVER_LENGTH, MAX_RIVER_LENGTH, RIVER_START_ELEV_MIN);
 
 
-    printf("Printing text map to console...\n");
-    print_map_text(map);
+    if (ENABLE_CONSOLE_OUTPUT) {
+    	printf("Printing text map to console...\n");
+    	print_map_text(map, LATITUDE_TEMP_EFFECT_STRENGTH);
+	}
+
     printf("Writing map to PNG image file...\n");
-    if (write_map_png(map, OUTPUT_PNG_FILENAME) != 0) {
+    if (write_map_png(map, OUTPUT_PNG_FILENAME, LATITUDE_TEMP_EFFECT_STRENGTH) != 0) {
         fprintf(stderr, "Error writing PNG file.\n");
     }
 
