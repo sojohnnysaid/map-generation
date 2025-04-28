@@ -37,5 +37,8 @@ clean:
 run: all
 	./$(TARGET)
 
-.PHONY: all clean run
+# Rule to time the program execution
+time: all
+	time ./$(TARGET)
 
+.PHONY: all clean run time
