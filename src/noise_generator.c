@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include <stdbool.h>
 
 #define FNL_IMPL
 #include "FastNoiseLite.h"
@@ -53,11 +54,12 @@ void generate_octave_noise_to_layer(NoiseState* state,
     double persistence = params->persistence;
     double lacunarity = params->lacunarity;
     double base_frequency = params->base_frequency;
+    bool use_ridged = params->use_ridged;
 
     if (octaves < 1) octaves = 1;
 
-    printf("Generating octave noise (%d octaves, persist=%.2f, lacun=%.2f, freq=%.4f)...\n",
-           octaves, persistence, lacunarity, base_frequency);
+	printf("Generating octave noise (%d octaves, persist=%.2f, lacun=%.2f, freq=%.4f, ridged=%s)...\n",
+           octaves, persistence, lacunarity, base_frequency, use_ridged ? "true" : "false");
 
     double min_val = DBL_MAX;
     double max_val = -DBL_MAX;
@@ -91,13 +93,29 @@ void generate_octave_noise_to_layer(NoiseState* state,
                 state->noise.frequency = (float)frequency;
                 float noise_x = world_x;
                 float noise_y = world_y;
+
                 float noise_val = get_raw_noise(state, noise_x, noise_y);
-                total_noise += noise_val * amplitude;
+
+                double octave_value;
+                if (use_ridged) {
+                    double pseudo_noise_01 = (noise_val * 0.5) + 0.5;
+                    octave_value = 2.0 * (0.5 - fabs(0.5 - pseudo_noise_01));
+                } else {
+                    octave_value = noise_val;
+                }
+
+                total_noise += octave_value * amplitude;
+
                 amplitude *= persistence;
                 frequency *= lacunarity;
             }
 
-            double normalized_noise = (total_noise / max_possible_amplitude) * 0.5 + 0.5;
+            double normalized_noise;
+            if (use_ridged) {
+                normalized_noise = total_noise / max_possible_amplitude;
+            } else {
+                normalized_noise = (total_noise / max_possible_amplitude) * 0.5 + 0.5;
+            }
 
             if (normalized_noise < 0.0) normalized_noise = 0.0;
             if (normalized_noise > 1.0) normalized_noise = 1.0;

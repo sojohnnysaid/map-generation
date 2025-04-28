@@ -2,6 +2,7 @@
 #define NOISE_GENERATOR_H
 
 #include "map_data.h" // MapData needed only if funcs return it or take it
+#include <stdbool.h> // <-- Include for bool type
 
 // --- NEW Struct for Noise Parameters ---
 typedef struct {
@@ -9,6 +10,7 @@ typedef struct {
     double persistence;
     double lacunarity;
     double base_frequency;
+    bool use_ridged;
     // Could add seed here too if desired
 } NoiseParams;
 // --------------------------------------

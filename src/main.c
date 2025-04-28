@@ -2,36 +2,45 @@
 #include <stdlib.h>
 #include <time.h>
 #include <float.h>
+#include <stdbool.h> // Include for bool type
 
 #include "map_data.h"
-#include "map_io.h" // Includes PNG function declaration now
+#include "map_io.h"
 #include "noise_generator.h"
 #include "map_shaping.h"
 
+#define MAP_WIDTH 512 // Increased size for better visual
+#define MAP_HEIGHT 256
+#define OUTPUT_PNG_FILENAME "world_map_ridged.png" // New filename
 
-#define MAP_WIDTH 1024
-#define MAP_HEIGHT 512 // Can increase this for better PNGs later
-
-// --- Define output filename (CHANGED) ---
-#define OUTPUT_PNG_FILENAME "world_map.png"
-// --------------------------------------
-
-#define REDISTRIBUTION_EXPONENT 2.0
-#define ISLAND_MIX_FACTOR 0.7
+#define REDISTRIBUTION_EXPONENT 1.5 // May need different exponent for ridged
+#define ISLAND_MIX_FACTOR 0.8       // Slightly stronger island effect maybe
 #define ISLAND_SHAPE_TYPE ISLAND_SHAPE_SQUARE
 
 int main() {
-    printf("Procedural Map Generator - Milestone 11 (PNG)\n"); // Updated title
+    printf("Procedural Map Generator - Milestone 12 (Ridged)\n");
 
     int seed1 = time(NULL);
     int seed2 = seed1 + 1;
     printf("Using seeds: Elev=%d, Moist=%d\n", seed1, seed2);
 
-    NoiseParams elev_params = { /* ... */ .base_frequency = 0.04 };
-    NoiseParams moist_params = { /* ... */ .base_frequency = 0.06 };
-    elev_params.octaves = 5; elev_params.persistence = 0.5; elev_params.lacunarity = 2.0;
-    moist_params.octaves = 4; moist_params.persistence = 0.45; moist_params.lacunarity = 2.1;
+    // --- Noise Parameters ---
+    NoiseParams elev_params = {
+        .octaves = 6,           // More octaves might look good with ridged
+        .persistence = 0.55,    // Adjust persistence
+        .lacunarity = 2.0,
+        .base_frequency = 0.03, // Adjust frequency
+        .use_ridged = true      // <-- ENABLE RIDGED FOR ELEVATION
+    };
 
+    NoiseParams moist_params = {
+        .octaves = 4,
+        .persistence = 0.45,
+        .lacunarity = 2.1,
+        .base_frequency = 0.06,
+        .use_ridged = false     // Standard noise for moisture
+    };
+    // -----------------------
 
     NoiseState* noise_gen_elev = init_noise_generator(seed1);
     NoiseState* noise_gen_moist = init_noise_generator(seed2);
@@ -39,14 +48,19 @@ int main() {
     if (!noise_gen_elev || !noise_gen_moist || !map) { /* ... error handling ... */ return EXIT_FAILURE; }
 
 
-    printf("Generating Elevation Map...\n");
+    printf("Generating Elevation Map (Ridged)...\n"); // Updated message
     generate_octave_noise_to_layer(noise_gen_elev, map->width, map->height, map->elevation, &elev_params);
+
     printf("Generating Moisture Map...\n");
     generate_octave_noise_to_layer(noise_gen_moist, map->width, map->height, map->moisture, &moist_params);
 
 
     printf("Redistributing Elevation Map...\n");
+    // NOTE: Redistribution might behave differently with ridged noise.
+    // Ridged noise naturally pushes values away from 0.5.
+    // An exponent > 1 might make valleys *very* flat. Experiment needed.
     redistribute_map(map, REDISTRIBUTION_EXPONENT);
+
     printf("Applying Island Shape...\n");
     shape_island(map, ISLAND_MIX_FACTOR, ISLAND_SHAPE_TYPE);
 
@@ -54,12 +68,8 @@ int main() {
     printf("Printing text map to console...\n");
     print_map_text(map);
 
-    // --- Updated Call to write PNG ---
     printf("Writing map to PNG image file...\n");
-    if (write_map_png(map, OUTPUT_PNG_FILENAME) != 0) { // <-- Call PNG write function
-        fprintf(stderr, "Error writing PNG file.\n");
-    }
-    // ---------------------------------
+    if (write_map_png(map, OUTPUT_PNG_FILENAME) != 0) { /* ... error handling ... */ }
 
 
     destroy_map(map);
