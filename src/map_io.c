@@ -1,6 +1,28 @@
 #include "map_io.h"
 #include <stdio.h>
 
+// --- ANSI Color Codes (Backgrounds) ---
+// Reference: https://en.wikipedia.org/wiki/ANSI_escape_code#3-bit_and_4-bit
+#define ANSI_BG_BLACK   "\x1b[40m"
+#define ANSI_BG_RED     "\x1b[41m"
+#define ANSI_BG_GREEN   "\x1b[42m"
+#define ANSI_BG_YELLOW  "\x1b[43m"
+#define ANSI_BG_BLUE    "\x1b[44m"
+#define ANSI_BG_MAGENTA "\x1b[45m"
+#define ANSI_BG_CYAN    "\x1b[46m"
+#define ANSI_BG_WHITE   "\x1b[47m"
+// Bright versions (optional)
+#define ANSI_BG_BRIGHT_BLACK   "\x1b[100m" // Gray
+#define ANSI_BG_BRIGHT_RED     "\x1b[101m"
+#define ANSI_BG_BRIGHT_GREEN   "\x1b[102m"
+#define ANSI_BG_BRIGHT_YELLOW  "\x1b[103m"
+#define ANSI_BG_BRIGHT_BLUE    "\x1b[104m"
+#define ANSI_BG_BRIGHT_MAGENTA "\x1b[105m"
+#define ANSI_BG_BRIGHT_CYAN    "\x1b[106m"
+#define ANSI_BG_BRIGHT_WHITE   "\x1b[107m"
+
+#define ANSI_RESET      "\x1b[0m" // Resets all attributes
+                                  //
 #define BIOME_OCEAN       '~'
 #define BIOME_BEACH       '.'
 #define BIOME_GRASSLAND   ','
@@ -28,30 +50,38 @@ void print_map_text(const MapData* map) {
             double e = map->elevation[y][x];
             double m = map->moisture[y][x];
 
-            char biome_char;
+            const char* bg_color_code; // Store the ANSI code string
 
+            // Determine biome and set the corresponding background color
             if (e < ELEV_OCEAN_MAX) {
-                biome_char = BIOME_OCEAN;
+                bg_color_code = ANSI_BG_BLUE;          // Ocean = Blue
             } else if (e < ELEV_BEACH_MAX) {
-                biome_char = BIOME_BEACH;
+                bg_color_code = ANSI_BG_BRIGHT_YELLOW; // Beach = Light Yellow
             } else if (e > ELEV_MOUNTAIN_MIN) {
                 if (m < MOIST_DRY_MAX) {
-                    biome_char = BIOME_ROCK;
+                    bg_color_code = ANSI_BG_BRIGHT_BLACK; // Rock = Gray
                 } else {
-                    biome_char = BIOME_SNOW;
+                    bg_color_code = ANSI_BG_WHITE;        // Snow = White
                 }
-            } else {
+            } else { // Mid-elevation lands
                 if (m < MOIST_DRY_MAX) {
-                    biome_char = BIOME_DRY_GRASS;
+                    bg_color_code = ANSI_BG_YELLOW;       // Dry Grass/Savannah = Dark Yellow/Ochre
                 } else if (m < MOIST_FOREST_MIN) {
-                    biome_char = BIOME_GRASSLAND;
+                    bg_color_code = ANSI_BG_GREEN;        // Grassland = Green
                 } else {
-                    biome_char = BIOME_FOREST;
+                    bg_color_code = ANSI_BG_BRIGHT_GREEN; // Forest = Bright Green
                 }
             }
-            putchar(biome_char);
+
+            // Print the color, a space to show it, and reset
+            printf("%s %s", bg_color_code, ANSI_RESET); // Print color, space, reset
+
+            // Alternatively, use a block character for potentially better visuals:
+            // printf("%s█%s", bg_color_code, ANSI_RESET); // Requires terminal support for block chars
+            // Note: Using block char might double the perceived width in some terminals. Let's stick with space.
+
         }
-        putchar('\n');
+        putchar('\n'); // Newline after each row (outside the color codes)
     }
     printf("--------------------\n");
 }
