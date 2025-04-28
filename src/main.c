@@ -12,19 +12,22 @@
 
 #define MAP_WIDTH 512
 #define MAP_HEIGHT 256
-#define OUTPUT_PNG_FILENAME "world_map_rivers.png"
+#define OUTPUT_PNG_FILENAME "world_map_lakes.png"
 
 
-#define CONTINENT_LAND_THRESHOLD 0.55
-#define REDISTRIBUTION_EXPONENT 1.9
-#define NUM_TERRACE_LEVELS 14
+#define CONTINENT_LAND_THRESHOLD 0.45
+#define REDISTRIBUTION_EXPONENT 1.8
 #define APPLY_TERRACING false
+#define NUM_TERRACE_LEVELS 12
 
 
-#define NUM_RIVERS 120
-#define MIN_RIVER_LENGTH 45
-#define MAX_RIVER_LENGTH 600
+#define NUM_RIVERS 100
+#define MIN_RIVER_LENGTH 15
+#define MAX_RIVER_LENGTH 500
 #define RIVER_START_ELEV_MIN 0.5
+
+
+#define OCEAN_LEVEL_FOR_LAKES 0.18
 
 
 void free_temp_map(double** temp_map, int height) {
@@ -37,17 +40,18 @@ void free_temp_map(double** temp_map, int height) {
 
 
 int main() {
-    printf("Procedural Map Generator - Milestone 15 (Rivers)\n");
+    printf("Procedural Map Generator - Milestone 16 (Lakes)\n");
 
-    int seed1 = time(NULL);
-    int seed2 = seed1 + 1;
-    int seed3 = seed2 + 1;
+    srand((unsigned int)time(NULL));
+    int seed1 = rand();
+    int seed2 = rand();
+    int seed3 = rand();
     printf("Using seeds: Elev=%d, Moist=%d, Cont=%d\n", seed1, seed2, seed3);
 
 
     NoiseParams elev_params = {
         .octaves = 6, .persistence = 0.5, .lacunarity = 2.0,
-        .base_frequency = 0.04, .use_ridged = false
+        .base_frequency = 0.05, .use_ridged = false
     };
     NoiseParams moist_params = {
         .octaves = 4, .persistence = 0.45, .lacunarity = 2.1,
@@ -106,6 +110,10 @@ int main() {
         printf("Applying Terraces...\n");
         apply_terraces(map, NUM_TERRACE_LEVELS);
     }
+
+
+    printf("Filling Lakes...\n");
+    fill_lakes(map, OCEAN_LEVEL_FOR_LAKES);
 
 
     printf("Generating Rivers...\n");
