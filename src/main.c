@@ -25,7 +25,7 @@ NoiseParams moist_params = {
 // ------------------------------------------
 
 // --- Transformation Params ---
-#define REDISTRIBUTION_EXPONENT 1.5
+#define REDISTRIBUTION_EXPONENT 2.5
 #define ISLAND_MIX_FACTOR 0.8
 #define ISLAND_SHAPE_TYPE ISLAND_SHAPE_SQUARE
 #define NUM_TERRACE_LEVELS 12 // How many distinct steps (e.g., 8-20 often works well)

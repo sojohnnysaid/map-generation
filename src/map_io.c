@@ -28,8 +28,8 @@ const RGBColor COLOR_BARE_ROCK       = {149, 165, 166};
 const RGBColor COLOR_DESERT_SAND     = {210, 180, 140};
 
 
-#define ELEV_OCEAN           0.15
-#define ELEV_BEACH           0.18
+#define ELEV_OCEAN           0.25
+#define ELEV_BEACH           0.28
 #define ELEV_TROPICAL_MAX    0.40
 #define ELEV_TEMPERATE_MAX   0.65
 #define ELEV_BOREAL_MAX      0.85
