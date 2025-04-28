@@ -1,7 +1,8 @@
 #include "map_data.h"
 #include <stdlib.h>
-#include <stdio.h> // For error messages
+#include <stdio.h>
 #include <math.h>
+#include <float.h>
 
 MapData* create_map(int width, int height) {
     if (width <= 0 || height <= 0) {
@@ -17,100 +18,101 @@ MapData* create_map(int width, int height) {
 
     map->width = width;
     map->height = height;
-    map->elevation = NULL; // Initialize to NULL
+    map->elevation = NULL;
+    map->moisture = NULL;
 
-    // Allocate rows (array of pointers to double)
     map->elevation = malloc(height * sizeof(double*));
     if (!map->elevation) {
         perror("Error allocating map elevation rows");
-        free(map); // Clean up MapData struct
+        free(map);
         return NULL;
     }
 
-    // Allocate columns for each row (actual double values)
     for (int y = 0; y < height; y++) {
         map->elevation[y] = malloc(width * sizeof(double));
         if (!map->elevation[y]) {
             perror("Error allocating map elevation columns");
-            // Clean up previously allocated rows and the row pointers array
-            for (int i = 0; i < y; i++) {
-                free(map->elevation[i]);
-            }
+            for (int i = 0; i < y; i++) free(map->elevation[i]);
             free(map->elevation);
-            free(map); // Clean up MapData struct
+            free(map);
             return NULL;
         }
     }
 
-    printf("Created map (%dx%d)\n", width, height);
-    fill_map_constant(map, 0.0); // Initialize to 0.0
+    map->moisture = malloc(height * sizeof(double*));
+    if (!map->moisture) {
+        perror("Error allocating map moisture rows");
+        for (int y = 0; y < height; y++) free(map->elevation[y]);
+        free(map->elevation);
+        free(map);
+        return NULL;
+    }
+
+    for (int y = 0; y < height; y++) {
+        map->moisture[y] = malloc(width * sizeof(double));
+        if (!map->moisture[y]) {
+            perror("Error allocating map moisture columns");
+            for (int i = 0; i < y; i++) free(map->moisture[i]);
+            free(map->moisture);
+            for (int i = 0; i < height; i++) free(map->elevation[i]);
+            free(map->elevation);
+            free(map);
+            return NULL;
+        }
+    }
+
+    printf("Created map (%dx%d) with elevation and moisture layers\n", width, height);
+
+    for (int y = 0; y < height; y++) {
+         for (int x = 0; x < width; x++) {
+             map->elevation[y][x] = 0.0;
+             map->moisture[y][x] = 0.0;
+         }
+     }
+
     return map;
 }
 
 void destroy_map(MapData* map) {
-    if (!map) {
-        return; // Nothing to destroy
-    }
+    if (!map) return;
 
     if (map->elevation) {
-        // Free columns for each row first
         for (int y = 0; y < map->height; y++) {
-            free(map->elevation[y]); // Frees the double array for row y
+            free(map->elevation[y]);
         }
-        // Free the array of row pointers
         free(map->elevation);
     }
 
-    // Free the main struct
+    if (map->moisture) {
+        for (int y = 0; y < map->height; y++) {
+            free(map->moisture[y]);
+        }
+        free(map->moisture);
+    }
+
     free(map);
     printf("Destroyed map\n");
 }
 
-// Helper function to initialize the map grid
-void fill_map_constant(MapData* map, double value) {
-    if (!map || !map->elevation) return;
 
-    for (int y = 0; y < map->height; y++) {
-        for (int x = 0; x < map->width; x++) {
-            map->elevation[y][x] = value;
-        }
-    }
-}
-
-// --- New Implementation ---
 void redistribute_map(MapData* map, double exponent) {
     if (!map || !map->elevation) {
         fprintf(stderr, "Error: Cannot redistribute NULL map.\n");
         return;
     }
     if (exponent <= 0) {
-        // pow() with exponent 0 is 1, negative exponents can cause issues with 0 elevation
         fprintf(stderr, "Warning: Using non-positive exponent (%.2f) in redistribution might lead to unexpected results. Applying anyway.\n", exponent);
-         if (exponent == 0.0) exponent = 1e-9; // Avoid pow(0,0) returning 1 for 0 elevation
+         if (exponent == 0.0) exponent = 1e-9;
     }
 
-
     printf("Applying redistribution with exponent %.2f...\n", exponent);
-
-    // Optional: Track range *after* redistribution
-    // double min_post = DBL_MAX;
-    // double max_post = -DBL_MAX;
 
     for (int y = 0; y < map->height; y++) {
         for (int x = 0; x < map->width; x++) {
             double original_elevation = map->elevation[y][x];
-            // Apply the power function
             map->elevation[y][x] = pow(original_elevation, exponent);
-
-            // Optional: Update post-redistribution range
-            // if (map->elevation[y][x] < min_post) min_post = map->elevation[y][x];
-            // if (map->elevation[y][x] > max_post) max_post = map->elevation[y][x];
         }
     }
 
-    // Optional: Print post-redistribution range
-    // printf("--> Elevation range after redistribution: [%.4f, %.4f]\n", min_post, max_post);
-
     printf("Redistribution complete.\n");
 }
-// ------------------------

@@ -8,14 +8,14 @@ typedef struct NoiseState NoiseState;
 NoiseState* init_noise_generator(int seed);
 void cleanup_noise_generator(NoiseState* state);
 
-// Updated function signature:
-void generate_octave_noise_map(NoiseState* state, MapData* map,
-                               int octaves,       // Number of noise layers
-                               double persistence, // Amplitude multiplier per octave (<1)
-                               double lacunarity,  // Frequency multiplier per octave (>1)
-                               double base_scale); // Initial scale/frequency
+// Modified signature: takes target layer
+void generate_octave_noise_to_layer(NoiseState* state,
+                                    int width, int height, // Pass dimensions
+                                    double** target_layer, // Target layer (e.g., map->elevation)
+                                    int octaves, double persistence,
+                                    double lacunarity, double base_frequency);
 
-// Keep the single value getter if needed, though less relevant now
+// get_noise_value can remain, but its utility is low now
 float get_noise_value(NoiseState* state, float x, float y);
 
 #endif // NOISE_GENERATOR_H
