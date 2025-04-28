@@ -1,20 +1,22 @@
 #include "hydrology.h"
 #include <stdio.h>
-#include <stdlib.h> // For rand(), malloc(), free()
+#include <stdlib.h> // For rand, srand
 #include <float.h>  // For DBL_MAX
+#include <math.h>   // For fmax
+#include <time.h>   // For seeding srand
 
-// Helper struct to store coordinates
+// Simple structure to hold coordinates
 typedef struct {
     int x;
     int y;
 } Point;
 
-// Find the lowest neighbour (including diagonals)
-// Returns Point{-1, -1} if current cell is lowest or on boundary error
+// Helper: Find the neighbour with the strictly lowest elevation
 static Point find_downhill_neighbour(const MapData* map, int x, int y) {
-    Point lowest = {-1, -1};
-    double min_elev = map->elevation[y][x];
+    Point best_neighbour = {x, y}; // Default to current point (indicates no downhill)
+    double min_elevation = map->elevation[y][x];
 
+    // Check 8 neighbours (dx, dy are offsets)
     for (int dy = -1; dy <= 1; ++dy) {
         for (int dx = -1; dx <= 1; ++dx) {
             if (dx == 0 && dy == 0) continue; // Skip self
@@ -22,96 +24,110 @@ static Point find_downhill_neighbour(const MapData* map, int x, int y) {
             int nx = x + dx;
             int ny = y + dy;
 
-            // Check boundaries
+            // Check bounds
             if (nx >= 0 && nx < map->width && ny >= 0 && ny < map->height) {
-                if (map->elevation[ny][nx] < min_elev) {
-                    min_elev = map->elevation[ny][nx];
-                    lowest.x = nx;
-                    lowest.y = ny;
+                double neighbour_elevation = map->elevation[ny][nx];
+                // Found a strictly lower neighbour
+                if (neighbour_elevation < min_elevation) {
+                    min_elevation = neighbour_elevation;
+                    best_neighbour.x = nx;
+                    best_neighbour.y = ny;
                 }
             }
         }
     }
-    return lowest;
+    return best_neighbour;
 }
 
 
-void generate_rivers(MapData* map, int num_rivers, int min_length, int max_length) {
-    if (!map || !map->elevation || !map->is_river) return;
+void generate_rivers(MapData* map, int num_rivers, int min_length, int max_length, double start_elevation_min) {
+    if (!map || !map->elevation) return;
 
+    printf("Generating rivers (attempting %d)...\n", num_rivers);
+    srand((unsigned int)time(NULL)); // Seed random number generator
+
+    int rivers_generated = 0;
     int width = map->width;
     int height = map->height;
-    int rivers_generated = 0;
-    int attempts = 0;
-    const int max_attempts = num_rivers * 10; // Try harder to find start points
 
-    // Define water level slightly above ocean level for termination condition
-    const double water_level = 0.18; // Use a value >= ELEV_BEACH from map_io.c
+    // Define water level threshold locally (could pass as param or get from map_io)
+    // Using a value slightly above ocean to ensure flow terminates correctly
+    const double WATER_LEVEL_THRESHOLD = 0.18; // Use ELEV_BEACH value
 
-    printf("Generating up to %d rivers (min_len=%d, max_len=%d)...\n",
-           num_rivers, min_length, max_length);
+    for (int i = 0; i < num_rivers; ++i) {
+        Point path[max_length]; // Static array for path storage per river
+        int path_len = 0;
+        Point current_pos = {-1, -1};
 
-    // Temporary storage for the current river path
-    Point* path = malloc(max_length * sizeof(Point));
-    if (!path) {
-        perror("Failed to allocate memory for river path");
-        return;
-    }
+        // Try to find a suitable starting point
+        int start_attempts = 0;
+        const int max_start_attempts = width * height / 10; // Try roughly 10% of cells
 
-    while (rivers_generated < num_rivers && attempts < max_attempts) {
-        attempts++;
-
-        // 1. Find a random starting point on land
-        int startX = rand() % width;
-        int startY = rand() % height;
-
-        // Ensure start point is suitable land (not water, not too low)
-        if (map->elevation[startY][startX] <= water_level || map->is_river[startY][startX]) {
-            continue; // Try another random point
+        while (start_attempts < max_start_attempts) {
+            int sx = rand() % width;
+            int sy = rand() % height;
+            if (map->elevation[sy][sx] >= start_elevation_min) {
+                current_pos.x = sx;
+                current_pos.y = sy;
+                break;
+            }
+            start_attempts++;
         }
 
-        // 2. Trace path downhill
-        int path_len = 0;
-        int currX = startX;
-        int currY = startY;
-        bool reached_water = false;
+        if (current_pos.x == -1) {
+            // printf("Failed to find suitable river start point after %d attempts.\n", max_start_attempts);
+            continue; // Try next river
+        }
+
+        // Trace the path downhill
+        path[path_len++] = current_pos;
 
         while (path_len < max_length) {
-            // Check if already river or water before adding to path
-            if (map->is_river[currY][currX] || map->elevation[currY][currX] <= water_level) {
-                 if (map->elevation[currY][currX] <= water_level) {
-                     reached_water = true; // Mark as successful termination if it hits water
-                 }
-                 break; // Stop if we hit existing river or water body
+            Point next_pos = find_downhill_neighbour(map, current_pos.x, current_pos.y);
+
+            // Check stopping conditions
+            if (next_pos.x == current_pos.x && next_pos.y == current_pos.y) {
+                // Stuck in a pit or flat area
+                break;
             }
-
-            path[path_len].x = currX;
-            path[path_len].y = currY;
-            path_len++;
-
-            Point next = find_downhill_neighbour(map, currX, currY);
-
-            if (next.x == -1) { // Reached a pit or flat area
+            if (map->elevation[next_pos.y][next_pos.x] < WATER_LEVEL_THRESHOLD) {
+                // Reached water
+                path[path_len++] = next_pos; // Add final water point
                 break;
             }
 
-            // Move to the next point
-            currX = next.x;
-            currY = next.y;
+            // Check for cycles (optional but good) - simplistic check
+            bool cycle_detected = false;
+            for(int k=0; k < path_len; ++k) {
+                if(path[k].x == next_pos.x && path[k].y == next_pos.y) {
+                    cycle_detected = true;
+                    break;
+                }
+            }
+            if (cycle_detected) break;
+
+
+            // Add to path and continue
+            path[path_len++] = next_pos;
+            current_pos = next_pos;
         }
 
-        // 3. Mark path as river if long enough
+        // Process the generated path
         if (path_len >= min_length) {
             rivers_generated++;
-            // printf("  Generated river %d (length %d)\n", rivers_generated, path_len);
-            for (int i = 0; i < path_len; ++i) {
-                map->is_river[path[i].y][path[i].x] = true;
-                // Optional: Slightly lower elevation to carve visually?
-                // map->elevation[path[i].y][path[i].x] *= 0.99; // Example
+            // printf("Carving river %d (length %d)\n", rivers_generated, path_len);
+            // "Carve" the river by lowering elevation
+            for (int j = 0; j < path_len; ++j) {
+                int px = path[j].x;
+                int py = path[j].y;
+                // Lower elevation, ensuring it doesn't go below a base level
+                double current_elev = map->elevation[py][px];
+                // Make river slightly lower than original, but above deep ocean
+                map->elevation[py][px] = fmax(WATER_LEVEL_THRESHOLD * 0.8, current_elev * 0.90);
+                 // Could also slightly widen the river by affecting neighbours
             }
         }
-    }
+    } // End loop for num_rivers
 
-    free(path); // Free temporary path storage
-    printf("River generation complete. Generated %d rivers after %d attempts.\n", rivers_generated, attempts);
+    printf("River generation complete (%d rivers carved).\n", rivers_generated);
 }

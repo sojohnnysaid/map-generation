@@ -26,7 +26,7 @@ const RGBColor COLOR_BARE_ROCK       = {149, 165, 166};
 const RGBColor COLOR_DESERT_SAND     = {210, 180, 140};
 const RGBColor COLOR_RIVER           = { 41, 128, 185}; // River Blue
 
-#define ELEV_OCEAN           0.25
+#define ELEV_OCEAN           0.29
 #define ELEV_BEACH           0.28
 #define ELEV_TROPICAL_MAX    0.40
 #define ELEV_TEMPERATE_MAX   0.65
